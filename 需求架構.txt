@@ -1,0 +1,36 @@
+專案架構設計文檔：誰是臥底 (Who is the Spy) Web 遊戲1. 專案概述專案名稱：誰是臥底 (Who is the Spy) - 多人連線派對遊戲架構模式：前後端分離 (Frontend/Backend Separation)核心機制：單一主螢幕（Host） + 多手機端（Client/Player）的互動模式。通訊方式：WebSocket (即時雙向通訊) + RESTful API (輔助)。狀態管理：Redis (In-memory 資料庫，處理房間狀態與高併發即時更新)。2. 系統架構與技術選型建議2.1 前端 (Frontend)框架建議：React.js (或 Vue 3) + ViteUI/樣式：Tailwind CSS (快速構建響應式介面)連線套件：socket.io-client主要視圖：主機端 (Host View)：顯示大螢幕資訊（QR Code、房間人數、當前發言人、投票統計、遊戲結果），玩家在線狀態監控與踢除離線玩家按鈕。玩家端 (Player View)：手機操作介面（輸入暱稱加入、查看自己底牌、按下「發言完畢」、投票操作、斷線重連提示）。2.2 後端 (Backend)框架建議：Node.js + Express + Socket.io (或 Python FastAPI/WebSockets)主要職責：處理 WebSocket 連線、廣播遊戲狀態、執行遊戲邏輯（派發詞彙、隨機點名、計算投票結果、監控連線心跳與斷線處理）。2.3 資料庫/緩存 (Database/Cache)核心存儲：Redis為何選擇 Redis：房間資料屬於短暫狀態 (Session-based)，不需要長久儲存於關聯式資料庫。Redis 能提供極快的讀寫速度，適合處理即時遊戲狀態。2.4 題庫系統 (Word Bank System) - [新增：在地化題庫]儲存方式：後端專案內的靜態 JSON 檔案 (如 words_tw.json)。啟動 Server 時載入記憶體中，提供極速的隨機抽取。目標收錄約 800 組詞彙。資料結構範例：[
+  { "id": 1, "wordA": "計程車", "wordB": "公車", "category": "交通工具" },
+  { "id": 2, "wordA": "馬鈴薯", "wordB": "地瓜", "category": "食物" }
+]
+在地化嚴格要求 (Taiwan Localization)：必須完全符合台灣人的生活習慣與用語，使用繁體中文。嚴禁出現中國大陸用語（確保玩家不會因為看不懂詞彙而破壞遊戲體驗）。防呆對照範例：交通類：用「計程車/腳踏車/捷運」，不用「出租車/自行車/地鐵」。科技類：用「影片/軟體/螢幕」，不用「視頻/軟件/屏幕」。食物類：用「馬鈴薯/便當/泡麵」，不用「土豆/盒飯/方便麵」。3. 核心遊戲流程 (Game Flow) 與防呆機制階段 1：房間建立與加入 (Room Creation & Joining)開房：主持人在前端點擊「建立房間」，後端在 Redis 生成一個唯一 roomId (例如 4 位數代碼)，並回傳給前端。QR Code 生成：主螢幕顯示 roomId 及對應的 QR Code (包含加入連結)。玩家加入：玩家掃描 QR Code，輸入暱稱，透過 WebSocket 連線加入房間。主螢幕即時更新已加入玩家列表。階段 2：遊戲設定與身分派發 (Setup & Role Distribution)設定參數：主持人設定「臥底人數」、「白板人數」(其餘自動為平民)。開始遊戲：主持人點擊開始。後端從台灣在地化題庫 (words_tw.json) 中，隨機抽取一組未曾使用過的詞彙。系統隨機決定哪一個詞是平民詞、哪一個是臥底詞（白板為「無詞彙」）。派發身分：後端將對應詞彙透過 WebSocket 私發給各個玩家。階段 3：隨機發言環節 (Speaking Phase)隨機點名：後端從「尚未發言」且「存活」的玩家中，隨機挑選一位。畫面同步：主機與手機端同步顯示目前發言玩家。換人邏輯：玩家發言結束後點擊「發言完畢」，觸發後端再次隨機抽選下一位。階段 4：投票與淘汰環節 (Voting & Elimination Phase)進入投票：所有人發言完畢，主螢幕切換至投票畫面。玩家手機端出現存活玩家列表（可單選）。投票過程：玩家點選要淘汰的人並送出。結算淘汰：最高票者被淘汰。公布被淘汰者的真實身分。階段 5：異常處理與房主權限 (Disconnection & Moderation)斷線保留 (Reconnection)：若玩家中途斷線，遊戲不中斷，該玩家狀態變為 isOnline: false。若輪到他發言或投票，會卡住等待。他只要重新整理網頁，系統憑 playerId 自動恢復他的畫面與狀態。房主踢除 (Host Kick)：若玩家遲遲不連回導致遊戲卡住，主機端面板會顯示該玩家「已離線」，房主可點擊「刪除該玩家」。踢除後的勝負判定：若踢出的是「臥底」：遊戲直接結束，判定為玩家（平民）獲勝。若踢出的是「一般玩家/白板」：該玩家被標記為淘汰。系統立刻重新檢查勝負條件。若未達結束條件，則遊戲繼續進行。階段 6：勝負判定 (Win Condition Check)平民獲勝：所有臥底皆被淘汰（含被房主踢除）。臥底獲勝：存活的臥底人數 $\ge$ 存活的平民人數。4. Redis 資料結構設計 (Data Models)Room: {roomId} (Hash or JSON){
+  "roomId": "A1B2",
+  "status": "waiting | playing | voting | finished",
+  "settings": {
+    "spyCount": 2,
+    "blankCount": 1,
+    "civilianCount": 5
+  },
+  "words": {
+    "civilianWord": "計程車",
+    "spyWord": "公車"
+  },
+  "gameState": {
+    "round": 1,
+    "currentSpeakerId": "player_id_3",
+    "spokenThisRound": ["player_id_1", "player_id_5"],
+    "votes": { "player_id_2": 3, "player_id_5": 5 },
+    "usedWordsIds": [1, 15, 234] // 紀錄該房間已玩過的題目ID，避免重複
+  }
+}
+RoomPlayers: {roomId} (List or Set of Player Objects)[
+  {
+    "playerId": "socket_id_or_uuid",
+    "name": "玩家一",
+    "role": "civilian | spy | blank",
+    "word": "計程車",
+    "isAlive": true,`
+    "isOnline": true,
+    "hasVotedFor": "player_id_2"
+  }
+]
+5. WebSocket 通訊協定設計 (Event Dictionary)(略，維持前一版設定)6. 給 AI 實作時的特殊提醒 (Prompting Notes)斷線重連邏輯 (Session Persistence)：略。踢人防呆處理 (Kick Fallback)：略。發言隨機性：每次點名時，從 全體存活玩家 - spokenThisRound 中做 Math.random() 抽取。狀態鎖定：必須在後端嚴格校驗狀態（只有 currentSpeakerId 相符的玩家送出 finish_speaking 才有效）。題庫生成與抽取限制 (Taiwanese Word Bank Constraint) [重要]：提供給 AI 擴充題庫的提示詞：「請幫我生成 800 組誰是臥底的題目，必須以 JSON 格式回傳。請絕對遵守台灣在地用語與生活習慣，嚴禁使用大陸詞彙。 例如：請用『印表機』取代『打印機』、用『泡麵』取代『方便麵』、用『機車』取代『摩托車』。詞組相似度要高但需有明顯差異點。」避免重複題目：後端在 Room 狀態中需維護 usedWordsIds 陣列。每次開始新一局，抽取題目時應排除 usedWordsIds 中已存在的 ID，確保同一個房間的玩家不會玩到重複的詞彙。`

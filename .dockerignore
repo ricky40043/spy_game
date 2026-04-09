@@ -1,0 +1,8 @@
+node_modules
+*/node_modules
+frontend/dist
+backend/src/data/*.json.bak
+.git
+.gitignore
+docker-compose.yml
+*.md
