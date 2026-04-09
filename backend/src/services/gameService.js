@@ -267,11 +267,8 @@ async function handleVote(io, socket, roomId, targetPlayerId) {
   await updatePlayer(roomId, playerId, { hasVotedFor: targetPlayerId });
   await castVote(roomId, targetPlayerId);
 
-  // Broadcast vote_received so HostView can show real-time vote counts
-  io.to(roomId).emit('vote_received', {
-    voterId: playerId,
-    targetPlayerId,
-  });
+  // Broadcast who has voted (no target revealed yet)
+  io.to(roomId).emit('vote_received', { voterId: playerId });
 
   // Broadcast updated room (who has voted)
   const players = await getPlayers(roomId);
@@ -289,6 +286,11 @@ async function handleVote(io, socket, roomId, targetPlayerId) {
   const allVoted = alivePlayers.every((p) => p.hasVotedFor !== null);
 
   if (allVoted) {
+    // Reveal vote counts to everyone before processing elimination
+    const votes = await getVotes(roomId);
+    io.to(roomId).emit('vote_results', { votes });
+    // 2-second pause so players can see the results
+    await new Promise((r) => setTimeout(r, 2000));
     await processVoteResults(io, roomId);
   }
 }
@@ -576,6 +578,55 @@ async function handleKickPlayer(io, socket, roomId, targetPlayerId) {
   await checkWinCondition(io, roomId);
 }
 
+/**
+ * Host forces the start of a new speaking round (same roles, same words).
+ */
+async function forceNextRound(io, socket, roomId) {
+  const socketMapping = await redis.get(`socket:${socket.id}`);
+  if (!socketMapping || !socketMapping.startsWith('HOST:')) {
+    socket.emit('error', { code: 'NOT_HOST', message: '只有房主才能執行此操作' });
+    return;
+  }
+  const room = await getRoom(roomId);
+  if (!room) {
+    socket.emit('error', { code: 'ROOM_NOT_FOUND', message: '找不到房間' });
+    return;
+  }
+  await advanceRound(io, roomId);
+}
+
+/**
+ * Host forces the game to end immediately.
+ */
+async function forceEndGame(io, socket, roomId) {
+  const socketMapping = await redis.get(`socket:${socket.id}`);
+  if (!socketMapping || !socketMapping.startsWith('HOST:')) {
+    socket.emit('error', { code: 'NOT_HOST', message: '只有房主才能執行此操作' });
+    return;
+  }
+  const room = await getRoom(roomId);
+  if (!room) {
+    socket.emit('error', { code: 'ROOM_NOT_FOUND', message: '找不到房間' });
+    return;
+  }
+
+  await updateRoom(roomId, { status: 'finished' });
+  await expireRoomSoon(roomId);
+
+  const players = await getPlayers(roomId);
+  io.to(roomId).emit('game_over', {
+    winner: 'draw',
+    players: players.map((p) => ({
+      playerId: p.playerId,
+      name: p.name,
+      role: p.role,
+      word: p.word,
+      isAlive: p.isAlive,
+    })),
+  });
+  logger.info(`Game force-ended by host in room ${roomId}`);
+}
+
 module.exports = {
   startGame,
   handleVote,
@@ -583,4 +634,6 @@ module.exports = {
   handleKickPlayer,
   nextSpeaker,
   findSocketByPlayer,
+  forceNextRound,
+  forceEndGame,
 };

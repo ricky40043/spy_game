@@ -1,4 +1,4 @@
-const { startGame, handleKickPlayer } = require('../services/gameService');
+const { startGame, handleKickPlayer, forceNextRound, forceEndGame } = require('../services/gameService');
 const logger = require('../utils/logger');
 
 /**
@@ -36,6 +36,39 @@ function registerHostHandlers(io, socket) {
     } catch (err) {
       logger.error('kick_player error:', err);
       socket.emit('error', { code: 'KICK_PLAYER_FAILED', message: err.message });
+    }
+  });
+  /**
+   * force_next_round: Host restarts speaking phase (same roles/words, next round number).
+   * Payload: { roomId }
+   */
+  socket.on('force_next_round', async ({ roomId } = {}) => {
+    try {
+      if (!roomId) {
+        socket.emit('error', { code: 'MISSING_FIELD', message: '缺少 roomId' });
+        return;
+      }
+      await forceNextRound(io, socket, roomId);
+    } catch (err) {
+      logger.error('force_next_round error:', err);
+      socket.emit('error', { code: 'FORCE_NEXT_ROUND_FAILED', message: err.message });
+    }
+  });
+
+  /**
+   * force_end_game: Host ends the game immediately (draw).
+   * Payload: { roomId }
+   */
+  socket.on('force_end_game', async ({ roomId } = {}) => {
+    try {
+      if (!roomId) {
+        socket.emit('error', { code: 'MISSING_FIELD', message: '缺少 roomId' });
+        return;
+      }
+      await forceEndGame(io, socket, roomId);
+    } catch (err) {
+      logger.error('force_end_game error:', err);
+      socket.emit('error', { code: 'FORCE_END_GAME_FAILED', message: err.message });
     }
   });
 }

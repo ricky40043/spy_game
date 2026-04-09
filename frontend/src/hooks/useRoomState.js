@@ -15,6 +15,7 @@ const initialState = {
   role: null,
   word: null,
   eliminatedPlayer: null,
+  voteResults: null, // { [playerId]: count } revealed after all voted
   error: null
 }
 
@@ -45,9 +46,8 @@ export function useRoomState() {
         ...prev,
         currentSpeakerId: data.currentSpeakerId,
         speakerName: data.speakerName,
-        spokenThisRound: data.spokenThisRound ?? prev.spokenThisRound,
-        // Keep 'revoting' status if already in revoting phase so UI stays correct
-        status: prev.status === 'revoting' ? 'revoting' : 'playing'
+        spokenThisRound: data.spokenThisRound ?? prev.spokenThisRound
+        // status is managed by room_updated / voting_started / revote_started, not here
       }))
     }
 
@@ -55,7 +55,15 @@ export function useRoomState() {
       setRoomState(prev => ({
         ...prev,
         status: 'voting',
-        candidates: data.candidates ?? []
+        candidates: data.candidates ?? [],
+        voteResults: null
+      }))
+    }
+
+    function onVoteResults(data) {
+      setRoomState(prev => ({
+        ...prev,
+        voteResults: data.votes ?? {}
       }))
     }
 
@@ -98,6 +106,7 @@ export function useRoomState() {
     socket.on('role_assigned', onRoleAssigned)
     socket.on('speaker_changed', onSpeakerChanged)
     socket.on('voting_started', onVotingStarted)
+    socket.on('vote_results', onVoteResults)
     socket.on('revote_started', onRevoteStarted)
     socket.on('player_eliminated', onPlayerEliminated)
     socket.on('game_over', onGameOver)
@@ -108,6 +117,7 @@ export function useRoomState() {
       socket.off('role_assigned', onRoleAssigned)
       socket.off('speaker_changed', onSpeakerChanged)
       socket.off('voting_started', onVotingStarted)
+      socket.off('vote_results', onVoteResults)
       socket.off('revote_started', onRevoteStarted)
       socket.off('player_eliminated', onPlayerEliminated)
       socket.off('game_over', onGameOver)

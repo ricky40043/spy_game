@@ -25,3 +25,14 @@ export function getHostId() {
   }
   return hostId
 }
+
+export function savePlayerName(roomId, name) {
+  const map = JSON.parse(localStorage.getItem('playerNames') || '{}')
+  map[roomId] = name
+  localStorage.setItem('playerNames', JSON.stringify(map))
+}
+
+export function getPlayerName(roomId) {
+  const map = JSON.parse(localStorage.getItem('playerNames') || '{}')
+  return map[roomId] || ''
+}

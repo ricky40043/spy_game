@@ -13,12 +13,11 @@ export default function HostView() {
 
   const { roomState, clearError, clearEliminated } = useRoomState()
   const { status, players, round, currentSpeakerId, speakerName, spokenThisRound,
-          candidates, tieCandidates, tieReason, winner, eliminatedPlayer, error } = roomState
+          candidates, tieCandidates, tieReason, winner, voteResults, eliminatedPlayer, error } = roomState
 
   const [spyCount, setSpyCount] = useState(1)
   const [blankCount, setBlankCount] = useState(0)
-  const [voteMap, setVoteMap] = useState({}) // { playerId: voteCount }
-  const [votedPlayers, setVotedPlayers] = useState([]) // list of playerIds who have voted
+  const [votedPlayers, setVotedPlayers] = useState([]) // playerIds who have voted
   const [showEliminated, setShowEliminated] = useState(false)
   const [disconnected, setDisconnected] = useState(false)
 
@@ -34,14 +33,9 @@ export default function HostView() {
     function onDisconnect() { setDisconnected(true) }
     function onConnect() { setDisconnected(false) }
 
-    // Track votes on host side via room_updated or a dedicated vote event
     function onVoteReceived(data) {
-      // data: { voterId, targetPlayerId }
+      // Only tracks who has voted, not who they voted for
       setVotedPlayers(prev => [...new Set([...prev, data.voterId])])
-      setVoteMap(prev => ({
-        ...prev,
-        [data.targetPlayerId]: (prev[data.targetPlayerId] || 0) + 1
-      }))
     }
 
     socket.on('connect', onConnect)
@@ -89,6 +83,18 @@ export default function HostView() {
 
   function handleKick(targetPlayerId) {
     socket.emit('kick_player', { roomId, targetPlayerId })
+  }
+
+  function handleForceNextRound() {
+    if (window.confirm('確定重新開始此輪發言？（保留身分和詞彙）')) {
+      socket.emit('force_next_round', { roomId })
+    }
+  }
+
+  function handleForceEndGame() {
+    if (window.confirm('確定直接結束遊戲？將以平局計算。')) {
+      socket.emit('force_end_game', { roomId })
+    }
   }
 
   // Determine who has spoken this round
@@ -214,6 +220,17 @@ export default function HostView() {
                 <p className="text-gray-400 mb-2">現在發言</p>
                 <p className="text-4xl font-extrabold text-yellow-400">{speakerName || '等待中...'}</p>
               </div>
+              {/* Host control buttons */}
+              <div className="flex gap-3">
+                <button onClick={handleForceNextRound}
+                  className="flex-1 py-2 bg-blue-700 hover:bg-blue-600 text-white text-sm font-semibold rounded-xl transition-colors">
+                  重新開始此輪
+                </button>
+                <button onClick={handleForceEndGame}
+                  className="flex-1 py-2 bg-red-800 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-colors">
+                  直接結束遊戲
+                </button>
+              </div>
 
               {/* Spoken / not spoken */}
               <div className="grid grid-cols-2 gap-3">
@@ -260,33 +277,60 @@ export default function HostView() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-gray-800 rounded-2xl p-6">
               <p className="text-gray-400 text-sm mb-1">第 {round} 輪</p>
-              <h2 className="text-2xl font-bold text-white mb-4">投票中</h2>
-              <p className="text-gray-400 text-sm mb-4">
+              <h2 className="text-2xl font-bold text-white mb-1">投票中</h2>
+              <p className="text-gray-400 text-sm mb-5">
                 已投票：{votedPlayers.length} / {alivePlayers.length}
               </p>
-              <ul className="space-y-2">
-                {candidates.map(c => {
-                  const votes = voteMap[c.playerId] || 0
-                  const totalVoted = Object.values(voteMap).reduce((a, b) => a + b, 0)
-                  const pct = totalVoted > 0 ? Math.round((votes / totalVoted) * 100) : 0
-                  return (
-                    <li key={c.playerId} className="bg-gray-700 rounded-xl px-4 py-3">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="font-medium">{c.name}</span>
-                        <span className="text-yellow-400 font-bold">{votes} 票</span>
-                      </div>
-                      {totalVoted > 0 && (
-                        <div className="w-full bg-gray-600 rounded-full h-1.5">
-                          <div
-                            className="bg-yellow-400 h-1.5 rounded-full transition-all"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
+
+              {/* Before all voted: show who has voted */}
+              {!voteResults && (
+                <ul className="space-y-2">
+                  {alivePlayers.map(p => {
+                    const hasVoted = votedPlayers.includes(p.playerId)
+                    return (
+                      <li key={p.playerId} className="flex items-center justify-between bg-gray-700 rounded-xl px-4 py-3">
+                        <span className="font-medium">{p.name}</span>
+                        <span className={`text-sm font-semibold ${hasVoted ? 'text-green-400' : 'text-gray-500'}`}>
+                          {hasVoted ? '已投票 ✓' : '未投票'}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+
+              {/* After all voted: reveal vote counts */}
+              {voteResults && (
+                <div>
+                  <p className="text-yellow-400 text-sm font-semibold mb-3">計票結果</p>
+                  <ul className="space-y-2">
+                    {candidates.map(c => {
+                      const votes = voteResults[c.playerId] || 0
+                      const total = Object.values(voteResults).reduce((a, b) => a + b, 0)
+                      const pct = total > 0 ? Math.round((votes / total) * 100) : 0
+                      return (
+                        <li key={c.playerId} className="bg-gray-700 rounded-xl px-4 py-3">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="font-medium">{c.name}</span>
+                            <span className="text-yellow-400 font-bold">{votes} 票</span>
+                          </div>
+                          <div className="w-full bg-gray-600 rounded-full h-2">
+                            <div className="bg-yellow-400 h-2 rounded-full transition-all"
+                              style={{ width: `${pct}%` }} />
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              <div className="mt-4 flex gap-3">
+                <button onClick={handleForceEndGame}
+                  className="w-full py-2 bg-red-800 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-colors">
+                  直接結束遊戲
+                </button>
+              </div>
             </div>
             <div className="bg-gray-800 rounded-xl p-4">
               <h2 className="text-white font-semibold mb-3">玩家狀態</h2>

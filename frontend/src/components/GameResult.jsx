@@ -1,21 +1,18 @@
 export default function GameResult({ winner, players = [], myPlayerId = null }) {
-  const isCivilian = winner === 'civilians'
+  const isCivilian = winner === 'civilian'
+  const isDraw = winner === 'draw'
+
+  const winnerLabel = isDraw ? '平局' : isCivilian ? '平民勝利！' : '臥底獲勝！'
+  const winnerColor = isDraw ? 'text-gray-400' : isCivilian ? 'text-blue-400' : 'text-red-400'
+  const winnerSub = isDraw ? '由房主結束遊戲' : isCivilian ? '所有臥底已被淘汰' : '臥底成功存活到最後'
 
   return (
     <div className="space-y-6">
       {/* 勝利方標題 */}
       <div className="text-center py-6">
         <p className="text-lg text-gray-400 mb-2">遊戲結束</p>
-        <p
-          className={`text-4xl font-extrabold ${
-            isCivilian ? 'text-blue-400' : 'text-red-400'
-          }`}
-        >
-          {isCivilian ? '平民勝利！' : '臥底獲勝！'}
-        </p>
-        <p className="text-gray-500 mt-2 text-sm">
-          {isCivilian ? '所有臥底已被淘汰' : '臥底成功存活到最後'}
-        </p>
+        <p className={`text-4xl font-extrabold ${winnerColor}`}>{winnerLabel}</p>
+        <p className="text-gray-500 mt-2 text-sm">{winnerSub}</p>
       </div>
 
       {/* 身分揭露表格 */}

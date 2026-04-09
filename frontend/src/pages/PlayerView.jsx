@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { socket } from '../socket.js'
-import { getPlayerId } from '../storage.js'
+import { getPlayerId, savePlayerName, getPlayerName } from '../storage.js'
 import { useRoomState } from '../hooks/useRoomState.js'
 import WordCard from '../components/WordCard.jsx'
 import VotePanel from '../components/VotePanel.jsx'
@@ -13,8 +13,9 @@ export default function PlayerView() {
   const nameFromURL = searchParams.get('name') || ''
 
   const [roomId, setRoomId] = useState(roomIdFromURL)
-  const [name, setName] = useState(nameFromURL)
-  const [nameInput, setNameInput] = useState(nameFromURL)
+  const savedName = roomIdFromURL ? getPlayerName(roomIdFromURL) : ''
+  const [name, setName] = useState(nameFromURL || savedName)
+  const [nameInput, setNameInput] = useState(nameFromURL || savedName)
   const [roomInput, setRoomInput] = useState(roomIdFromURL)
   const [joined, setJoined] = useState(false)
   const [myVote, setMyVote] = useState(null) // playerId voted for
@@ -56,6 +57,7 @@ export default function PlayerView() {
 
     function onRoomUpdated() {
       setJoined(true)
+      savePlayerName(roomId, name)
     }
 
     function onError(data) {
@@ -66,7 +68,6 @@ export default function PlayerView() {
 
     if (socket.connected) {
       emitJoin(roomId, pId, name)
-      setJoined(true)
     } else {
       socket.on('connect', onConnect)
     }
@@ -131,7 +132,7 @@ export default function PlayerView() {
     setJoinError('')
     setRoomId(rId)
     setName(pName)
-    // name state update is async, useEffect will trigger the actual connect+join
+    // state updates are async; useEffect [roomId, name] will trigger connect+join
   }
 
   function handleFinishSpeaking() {
