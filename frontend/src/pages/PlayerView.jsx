@@ -39,9 +39,9 @@ export default function PlayerView() {
     socket.emit('join_room', { roomId: rId, playerId: pId, name: pName })
   }
 
-  // Connect + join on mount (if room and name are provided via URL)
+  // Connect + join on mount (if room and name are both available)
   useEffect(() => {
-    if (!roomId || !nameFromURL) return
+    if (!roomId || !name) return
 
     socket.connect()
     const pId = getPlayerId(roomId)
@@ -63,8 +63,10 @@ export default function PlayerView() {
       setJoinError(data.message || '加入失敗')
     }
 
+    socket.connect()
+
     if (socket.connected) {
-      emitJoin(roomId, pId, nameFromURL)
+      emitJoin(roomId, pId, name)
       setJoined(true)
     } else {
       socket.on('connect', onConnect)
@@ -79,7 +81,7 @@ export default function PlayerView() {
       socket.off('disconnect', onDisconnect)
       socket.off('error', onError)
     }
-  }, [roomId, nameFromURL])
+  }, [roomId, name])
 
   // Reconnect: re-emit join_room when socket reconnects
   useEffect(() => {
@@ -123,33 +125,14 @@ export default function PlayerView() {
   }, [error, clearError])
 
   function handleManualJoin() {
-    const rId = roomInput.trim().toUpperCase()
+    const rId = (roomIdFromURL || roomInput).trim().toUpperCase()
     const pName = nameInput.trim()
     if (!rId) { setJoinError('請輸入房號'); return }
     if (!pName) { setJoinError('請輸入暱稱'); return }
     setJoinError('')
     setRoomId(rId)
     setName(pName)
-
-    const pId = getPlayerId(rId)
-    socket.connect()
-
-    function onConnect() {
-      socket.off('connect', onConnect)
-      emitJoin(rId, pId, pName)
-    }
-
-    function onRoomUpdated() {
-      setJoined(true)
-    }
-
-    if (socket.connected) {
-      emitJoin(rId, pId, pName)
-      setJoined(true)
-    } else {
-      socket.on('connect', onConnect)
-      socket.once('room_updated', onRoomUpdated)
-    }
+    // name state update is async, useEffect will trigger the actual connect+join
   }
 
   function handleFinishSpeaking() {
@@ -207,24 +190,28 @@ export default function PlayerView() {
       )}
 
       <div className="flex-1 max-w-sm mx-auto w-full px-4 py-6 space-y-5">
-        {/* PRE-JOIN: No room in URL → manual input */}
-        {!joined && !roomIdFromURL && (
+        {/* PRE-JOIN: Need to enter name (with or without room in URL) */}
+        {!joined && !name && (
           <div className="space-y-4 pt-10">
             <div className="text-center mb-6">
               <h1 className="text-3xl font-extrabold">🕵️ 誰是臥底</h1>
-              <p className="text-gray-400 text-sm mt-1">輸入房號加入遊戲</p>
+              <p className="text-gray-400 text-sm mt-1">
+                {roomIdFromURL ? `加入房間 ${roomIdFromURL}` : '輸入房號加入遊戲'}
+              </p>
             </div>
-            <div>
-              <label className="block text-gray-400 text-sm mb-1">4 碼房號</label>
-              <input
-                type="text"
-                value={roomInput}
-                onChange={e => setRoomInput(e.target.value.toUpperCase())}
-                maxLength={4}
-                placeholder="XXXX"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white text-center text-2xl font-mono tracking-widest focus:outline-none focus:border-blue-500"
-              />
-            </div>
+            {!roomIdFromURL && (
+              <div>
+                <label className="block text-gray-400 text-sm mb-1">4 碼房號</label>
+                <input
+                  type="text"
+                  value={roomInput}
+                  onChange={e => setRoomInput(e.target.value.toUpperCase())}
+                  maxLength={4}
+                  placeholder="XXXX"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white text-center text-2xl font-mono tracking-widest focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            )}
             <div>
               <label className="block text-gray-400 text-sm mb-1">你的暱稱</label>
               <input
@@ -235,6 +222,7 @@ export default function PlayerView() {
                 placeholder="輸入暱稱"
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-xl text-white focus:outline-none focus:border-blue-500"
                 onKeyDown={e => e.key === 'Enter' && handleManualJoin()}
+                autoFocus
               />
             </div>
             {joinError && <p className="text-red-400 text-sm text-center">{joinError}</p>}
@@ -247,11 +235,11 @@ export default function PlayerView() {
           </div>
         )}
 
-        {/* PRE-JOIN: Has room in URL but waiting for socket to connect + join */}
-        {!joined && roomIdFromURL && (
+        {/* PRE-JOIN: Name entered, connecting to room */}
+        {!joined && name && (
           <div className="flex flex-col items-center justify-center pt-20 space-y-4">
             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-gray-400">等待加入房間 {roomIdFromURL}...</p>
+            <p className="text-gray-400">正在加入房間 {roomId}...</p>
             {joinError && <p className="text-red-400 text-sm">{joinError}</p>}
           </div>
         )}
