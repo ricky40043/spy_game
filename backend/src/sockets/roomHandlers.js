@@ -10,6 +10,81 @@ const logger = require('../utils/logger');
  */
 function registerRoomHandlers(io, socket) {
   /**
+   * rejoin_host: Host reconnects after page refresh.
+   * Payload: { roomId, hostId }
+   */
+  socket.on('rejoin_host', async ({ roomId, hostId } = {}) => {
+    try {
+      if (!roomId || !hostId) {
+        socket.emit('error', { code: 'MISSING_FIELD', message: '缺少必要欄位' });
+        return;
+      }
+
+      const room = await getRoom(roomId);
+      if (!room) {
+        socket.emit('error', { code: 'ROOM_NOT_FOUND', message: '找不到房間（可能已過期）' });
+        return;
+      }
+
+      const storedHostId = await redis.get(`host:${roomId}`);
+      if (storedHostId !== hostId) {
+        socket.emit('error', { code: 'NOT_HOST', message: '身分驗證失敗' });
+        return;
+      }
+
+      // Restore socket mapping
+      await redis.set(`socket:${socket.id}`, `HOST:${roomId}:${hostId}`, 'EX', config.socketTtl);
+      socket.join(roomId);
+
+      // Push current room state back to host
+      const players = await getPlayers(roomId);
+      const publicPlayers = toPublicPlayers(players);
+      socket.emit('room_updated', {
+        players: publicPlayers,
+        status: room.status,
+        round: room.round,
+        currentSpeakerId: room.currentSpeakerId,
+      });
+
+      // Re-send phase-specific state
+      if (room.status === 'playing' || room.status === 'revoting') {
+        if (room.currentSpeakerId) {
+          const speaker = await getPlayer(roomId, room.currentSpeakerId);
+          socket.emit('speaker_changed', {
+            currentSpeakerId: room.currentSpeakerId,
+            speakerName: speaker ? speaker.name : '',
+            spokenThisRound: room.spokenThisRound,
+          });
+        }
+        if (room.status === 'revoting' && room.tieCandidates?.length) {
+          const tieDetails = room.tieCandidates
+            .map(id => players.find(p => p.playerId === id))
+            .filter(Boolean)
+            .map(p => ({ playerId: p.playerId, name: p.name }));
+          socket.emit('revote_started', { tieCandidates: tieDetails, reason: 'tie' });
+        }
+      } else if (room.status === 'voting') {
+        const alivePlayers = players.filter(p => p.isAlive);
+        socket.emit('voting_started', {
+          candidates: alivePlayers.map(p => ({ playerId: p.playerId, name: p.name })),
+        });
+      } else if (room.status === 'finished') {
+        socket.emit('game_over', {
+          winner: room.winner || 'draw',
+          players: players.map(p => ({
+            playerId: p.playerId, name: p.name, role: p.role, word: p.word, isAlive: p.isAlive,
+          })),
+        });
+      }
+
+      logger.info(`Host rejoined room ${roomId}`);
+    } catch (err) {
+      logger.error('rejoin_host error:', err);
+      socket.emit('error', { code: 'REJOIN_HOST_FAILED', message: err.message });
+    }
+  });
+
+  /**
    * create_room: Host creates a new room.
    * Payload: { hostId }
    */

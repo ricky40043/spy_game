@@ -435,7 +435,7 @@ async function checkWinCondition(io, roomId) {
   }
 
   if (winner) {
-    await updateRoom(roomId, { status: 'finished' });
+    await updateRoom(roomId, { status: 'finished', winner });
     await expireRoomSoon(roomId);
 
     io.to(roomId).emit('game_over', {
@@ -610,7 +610,7 @@ async function forceEndGame(io, socket, roomId) {
     return;
   }
 
-  await updateRoom(roomId, { status: 'finished' });
+  await updateRoom(roomId, { status: 'finished', winner: 'draw' });
   await expireRoomSoon(roomId);
 
   const players = await getPlayers(roomId);

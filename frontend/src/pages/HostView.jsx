@@ -24,6 +24,12 @@ export default function HostView() {
   const joinUrl = `${window.location.origin}/player?room=${roomId}`
   const alivePlayers = players.filter(p => p.isAlive !== false)
 
+  const hostId = getHostId()
+
+  function emitRejoinHost() {
+    socket.emit('rejoin_host', { roomId, hostId })
+  }
+
   // Connect socket and listen for host-specific events
   useEffect(() => {
     if (!roomId) return
@@ -31,11 +37,19 @@ export default function HostView() {
     socket.connect()
 
     function onDisconnect() { setDisconnected(true) }
-    function onConnect() { setDisconnected(false) }
+    function onConnect() {
+      setDisconnected(false)
+      emitRejoinHost()
+    }
 
     function onVoteReceived(data) {
-      // Only tracks who has voted, not who they voted for
       setVotedPlayers(prev => [...new Set([...prev, data.voterId])])
+    }
+
+    if (socket.connected) {
+      emitRejoinHost()
+    } else {
+      socket.on('connect', onConnect)
     }
 
     socket.on('connect', onConnect)
@@ -52,7 +66,6 @@ export default function HostView() {
   // Reset vote tracking when entering voting phase
   useEffect(() => {
     if (status === 'voting' || status === 'revoting') {
-      setVoteMap({})
       setVotedPlayers([])
     }
   }, [status])
