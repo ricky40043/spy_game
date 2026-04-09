@@ -43,12 +43,11 @@ export default function PlayerView() {
   useEffect(() => {
     if (!roomId || !name) return
 
-    socket.connect()
     const pId = getPlayerId(roomId)
 
     function onConnect() {
       setDisconnected(false)
-      emitJoin(roomId, pId, nameFromURL)
+      emitJoin(roomId, pId, name)
     }
 
     function onDisconnect() {
