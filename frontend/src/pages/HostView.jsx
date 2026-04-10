@@ -170,7 +170,7 @@ export default function HostView() {
           <div className="bg-white rounded-2xl p-8 text-center max-w-sm mx-4 shadow-2xl">
             <p className="text-4xl mb-3">🚫</p>
             <p className="text-gray-500 mb-1">玩家被淘汰</p>
-            <p className="text-2xl font-bold text-white mb-2">{eliminatedPlayer.name}</p>
+            <p className="text-2xl font-bold text-gray-800 mb-2">{eliminatedPlayer.name}</p>
             <p className={`text-lg font-semibold ${eliminatedPlayer.role === 'spy' ? 'text-red-500' : 'text-blue-500'}`}>
               {eliminatedPlayer.role === 'spy' ? '臥底' : eliminatedPlayer.role === 'blank' ? '白板' : '平民'}
             </p>
@@ -285,7 +285,7 @@ export default function HostView() {
             <div className="lg:col-span-2 space-y-4">
               <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 text-center">
                 <p className="text-white/50 text-sm mb-1">第 {round} 輪</p>
-                <p className="text-gray-500 mb-2">現在發言</p>
+                <p className="text-white/60 mb-2">現在發言</p>
                 <p className="text-4xl font-extrabold text-yellow-300">{speakerName || '等待中...'}</p>
               </div>
               {/* Host control buttons */}
@@ -379,7 +379,7 @@ export default function HostView() {
                       return (
                         <li key={c.playerId} className="bg-white/10 rounded-xl px-4 py-3 border border-white/15">
                           <div className="flex justify-between items-center mb-1">
-                            <span className="font-medium text-gray-800">{c.name}</span>
+                            <span className="font-medium text-white">{c.name}</span>
                             <span className="text-yellow-300 font-bold">{votes} 票</span>
                           </div>
                           <div className="w-full bg-white/20 rounded-full h-2">
@@ -412,7 +412,7 @@ export default function HostView() {
           <div className="space-y-4">
             <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 text-center">
               <p className="text-3xl font-bold text-orange-500 mb-2">平票！</p>
-              <p className="text-gray-500 mb-4">{tieReason || '以下玩家重新發言後再投票'}</p>
+              <p className="text-white/70 mb-4">{tieReason || '以下玩家重新發言後再投票'}</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {tieCandidates.map(c => (
                   <span key={c.playerId} className="bg-orange-100 text-orange-700 px-4 py-2 rounded-full font-medium border border-orange-200">
