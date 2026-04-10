@@ -170,7 +170,7 @@ export default function HostView() {
           <div className="bg-white rounded-2xl p-8 text-center max-w-sm mx-4 shadow-2xl">
             <p className="text-4xl mb-3">🚫</p>
             <p className="text-gray-500 mb-1">玩家被淘汰</p>
-            <p className="text-2xl font-bold text-gray-800 mb-2">{eliminatedPlayer.name}</p>
+            <p className="text-2xl font-bold text-white mb-2">{eliminatedPlayer.name}</p>
             <p className={`text-lg font-semibold ${eliminatedPlayer.role === 'spy' ? 'text-red-500' : 'text-blue-500'}`}>
               {eliminatedPlayer.role === 'spy' ? '臥底' : eliminatedPlayer.role === 'blank' ? '白板' : '平民'}
             </p>
@@ -205,8 +205,8 @@ export default function HostView() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left: QR + settings */}
             <div className="space-y-4">
-              <div className="bg-white rounded-2xl shadow-lg p-4">
-                <h2 className="text-gray-500 text-sm mb-3 font-medium">掃描加入</h2>
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4">
+                <h2 className="text-white/60 text-sm mb-3 font-medium">掃描加入</h2>
                 <QRCodeBox url={joinUrl} />
                 {/* Share / Copy buttons */}
                 <div className="flex gap-2 mt-4">
@@ -218,35 +218,35 @@ export default function HostView() {
                   </button>
                   <button
                     onClick={handleCopyRoomId}
-                    className="flex-1 py-2.5 bg-white hover:bg-gray-50 text-gray-700 font-bold rounded-full transition-colors text-sm border border-gray-200"
+                    className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-full transition-colors text-sm border border-white/30"
                   >
                     複製房號
                   </button>
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl shadow-lg p-5 space-y-3">
-                <h2 className="text-gray-800 font-semibold">遊戲設定</h2>
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 space-y-4">
+                <h2 className="text-white font-semibold">遊戲設定</h2>
                 <div className="flex items-center gap-3">
-                  <label className="text-gray-500 text-sm w-20">臥底人數</label>
+                  <label className="text-white/70 text-sm w-20">臥底人數</label>
                   <input
                     type="number"
                     min={1}
                     max={Math.max(1, Math.floor(alivePlayers.length / 2))}
                     value={spyCount}
                     onChange={e => setSpyCount(Number(e.target.value))}
-                    className="w-20 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-center"
+                    className="w-20 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-center"
                   />
                 </div>
                 <div className="flex items-center gap-3">
-                  <label className="text-gray-500 text-sm w-20">白板人數</label>
+                  <label className="text-white/70 text-sm w-20">白板人數</label>
                   <input
                     type="number"
                     min={0}
                     max={3}
                     value={blankCount}
                     onChange={e => setBlankCount(Number(e.target.value))}
-                    className="w-20 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-center"
+                    className="w-20 px-3 py-2 bg-white/10 border border-white/30 rounded-lg text-white text-center"
                   />
                 </div>
                 <button
@@ -260,12 +260,12 @@ export default function HostView() {
             </div>
 
             {/* Right: Player list */}
-            <div className="bg-white rounded-2xl shadow-lg p-5">
-              <h2 className="text-gray-800 font-semibold mb-3">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5">
+              <h2 className="text-white font-semibold mb-3">
                 已加入玩家（{players.length}）
               </h2>
               {players.length === 0 ? (
-                <p className="text-gray-400 text-sm">等待玩家加入...</p>
+                <p className="text-white/50 text-sm">等待玩家加入...</p>
               ) : (
                 <PlayerList
                   players={players}
@@ -283,10 +283,10 @@ export default function HostView() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Center: Speaker highlight */}
             <div className="lg:col-span-2 space-y-4">
-              <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
-                <p className="text-gray-400 text-sm mb-1">第 {round} 輪</p>
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 text-center">
+                <p className="text-white/50 text-sm mb-1">第 {round} 輪</p>
                 <p className="text-gray-500 mb-2">現在發言</p>
-                <p className="text-4xl font-extrabold text-purple-600">{speakerName || '等待中...'}</p>
+                <p className="text-4xl font-extrabold text-yellow-300">{speakerName || '等待中...'}</p>
               </div>
               {/* Host control buttons */}
               <div className="flex gap-3">
@@ -302,22 +302,22 @@ export default function HostView() {
 
               {/* Spoken / not spoken */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white rounded-2xl shadow-lg p-4">
-                  <p className="text-gray-400 text-xs mb-2 font-medium">已發言</p>
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4">
+                  <p className="text-white/50 text-xs mb-2 font-medium">已發言</p>
                   <ul className="space-y-1">
                     {alivePlayers.filter(p => spokenSet.has(p.playerId)).map(p => (
-                      <li key={p.playerId} className="text-green-600 text-sm font-medium">{p.name}</li>
+                      <li key={p.playerId} className="text-green-300 text-sm font-medium">{p.name}</li>
                     ))}
                     {alivePlayers.filter(p => spokenSet.has(p.playerId)).length === 0 && (
-                      <li className="text-gray-400 text-sm">尚無人發言</li>
+                      <li className="text-white/50 text-sm">尚無人發言</li>
                     )}
                   </ul>
                 </div>
-                <div className="bg-white rounded-2xl shadow-lg p-4">
-                  <p className="text-gray-400 text-xs mb-2 font-medium">未發言</p>
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4">
+                  <p className="text-white/50 text-xs mb-2 font-medium">未發言</p>
                   <ul className="space-y-1">
                     {notSpokenYet.map(p => (
-                      <li key={p.playerId} className={`text-sm ${p.playerId === currentSpeakerId ? 'text-purple-600 font-bold' : 'text-gray-600'}`}>
+                      <li key={p.playerId} className={`text-sm ${p.playerId === currentSpeakerId ? 'text-purple-600 font-bold' : 'text-white/70'}`}>
                         {p.name}
                         {p.playerId === currentSpeakerId && ' 💬'}
                       </li>
@@ -328,8 +328,8 @@ export default function HostView() {
             </div>
 
             {/* Right: player list with kick */}
-            <div className="bg-white rounded-2xl shadow-lg p-5">
-              <h2 className="text-gray-800 font-semibold mb-3">玩家（{alivePlayers.length} 存活）</h2>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5">
+              <h2 className="text-white font-semibold mb-3">玩家（{alivePlayers.length} 存活）</h2>
               <PlayerList
                 players={players}
                 onKick={handleKick}
@@ -343,10 +343,10 @@ export default function HostView() {
         {/* VOTING */}
         {status === 'voting' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <p className="text-gray-400 text-sm mb-1">第 {round} 輪</p>
-              <h2 className="text-2xl font-bold text-gray-800 mb-1">投票中</h2>
-              <p className="text-gray-400 text-sm mb-5">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6">
+              <p className="text-white/50 text-sm mb-1">第 {round} 輪</p>
+              <h2 className="text-2xl font-bold text-white mb-1">投票中</h2>
+              <p className="text-white/50 text-sm mb-5">
                 已投票：{votedPlayers.length} / {alivePlayers.length}
               </p>
 
@@ -356,9 +356,9 @@ export default function HostView() {
                   {alivePlayers.map(p => {
                     const hasVoted = votedPlayers.includes(p.playerId)
                     return (
-                      <li key={p.playerId} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
-                        <span className="font-medium text-gray-800">{p.name}</span>
-                        <span className={`text-sm font-semibold ${hasVoted ? 'text-green-500' : 'text-gray-400'}`}>
+                      <li key={p.playerId} className="flex items-center justify-between bg-white/10 rounded-xl px-4 py-3 border border-white/15">
+                        <span className="font-medium text-white">{p.name}</span>
+                        <span className={`text-sm font-semibold ${hasVoted ? 'text-green-300' : 'text-white/30'}`}>
                           {hasVoted ? '已投票 ✓' : '未投票'}
                         </span>
                       </li>
@@ -370,20 +370,20 @@ export default function HostView() {
               {/* After all voted: reveal vote counts */}
               {voteResults && (
                 <div>
-                  <p className="text-purple-600 text-sm font-semibold mb-3">計票結果</p>
+                  <p className="text-yellow-300 text-sm font-semibold mb-3">計票結果</p>
                   <ul className="space-y-2">
                     {candidates.map(c => {
                       const votes = voteResults[c.playerId] || 0
                       const total = Object.values(voteResults).reduce((a, b) => a + b, 0)
                       const pct = total > 0 ? Math.round((votes / total) * 100) : 0
                       return (
-                        <li key={c.playerId} className="bg-gray-50 rounded-xl px-4 py-3">
+                        <li key={c.playerId} className="bg-white/10 rounded-xl px-4 py-3 border border-white/15">
                           <div className="flex justify-between items-center mb-1">
                             <span className="font-medium text-gray-800">{c.name}</span>
-                            <span className="text-purple-600 font-bold">{votes} 票</span>
+                            <span className="text-yellow-300 font-bold">{votes} 票</span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="bg-purple-500 h-2 rounded-full transition-all"
+                          <div className="w-full bg-white/20 rounded-full h-2">
+                            <div className="bg-yellow-400 h-2 rounded-full transition-all"
                               style={{ width: `${pct}%` }} />
                           </div>
                         </li>
@@ -400,8 +400,8 @@ export default function HostView() {
                 </button>
               </div>
             </div>
-            <div className="bg-white rounded-2xl shadow-lg p-5">
-              <h2 className="text-gray-800 font-semibold mb-3">玩家狀態</h2>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5">
+              <h2 className="text-white font-semibold mb-3">玩家狀態</h2>
               <PlayerList players={players} isHost={false} currentSpeakerId={null} />
             </div>
           </div>
@@ -410,7 +410,7 @@ export default function HostView() {
         {/* REVOTING */}
         {status === 'revoting' && (
           <div className="space-y-4">
-            <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 text-center">
               <p className="text-3xl font-bold text-orange-500 mb-2">平票！</p>
               <p className="text-gray-500 mb-4">{tieReason || '以下玩家重新發言後再投票'}</p>
               <div className="flex flex-wrap justify-center gap-2">
@@ -421,8 +421,8 @@ export default function HostView() {
                 ))}
               </div>
             </div>
-            <div className="bg-white rounded-2xl shadow-lg p-5">
-              <h2 className="text-gray-800 font-semibold mb-3">玩家狀態</h2>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5">
+              <h2 className="text-white font-semibold mb-3">玩家狀態</h2>
               <PlayerList players={players} isHost={false} currentSpeakerId={currentSpeakerId} />
             </div>
           </div>
