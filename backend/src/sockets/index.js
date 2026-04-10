@@ -45,15 +45,17 @@ function initSockets(io) {
         if (player) {
           await updatePlayer(roomId, playerId, { isOnline: false });
 
-          // Broadcast updated state
-          const players = await getPlayers(roomId);
-          const publicPlayers = toPublicPlayers(players);
-          io.to(roomId).emit('room_updated', {
-            players: publicPlayers,
-            status: room.status,
-            round: room.round,
-            currentSpeakerId: room.currentSpeakerId,
-          });
+          // Don't overwrite game_over data — finished rooms don't need room_updated
+          if (room.status !== 'finished') {
+            const players = await getPlayers(roomId);
+            const publicPlayers = toPublicPlayers(players);
+            io.to(roomId).emit('room_updated', {
+              players: publicPlayers,
+              status: room.status,
+              round: room.round,
+              currentSpeakerId: room.currentSpeakerId,
+            });
+          }
 
           logger.info(`Player ${player.name} (${playerId}) went offline in room ${roomId}`);
         }

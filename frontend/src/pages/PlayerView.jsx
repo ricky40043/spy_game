@@ -250,9 +250,19 @@ export default function PlayerView() {
         {/* PRE-JOIN: Name entered, connecting */}
         {!joined && name && (
           <div className="flex flex-col items-center justify-center pt-32 space-y-4">
-            <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
-            <p className="text-white/80">正在加入房間 {roomId}...</p>
-            {joinError && <p className="text-red-300 text-sm">{joinError}</p>}
+            {!joinError && <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin" />}
+            {joinError ? (
+              <>
+                <p className="text-5xl">😕</p>
+                <p className="text-red-300 font-semibold">{joinError}</p>
+                <button onClick={() => navigate('/')}
+                  className="mt-2 px-6 py-3 bg-white text-blue-600 font-bold rounded-full shadow hover:bg-blue-50 transition-colors">
+                  返回大廳
+                </button>
+              </>
+            ) : (
+              <p className="text-white/80">正在加入房間 {roomId}...</p>
+            )}
           </div>
         )}
 

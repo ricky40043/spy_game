@@ -109,13 +109,17 @@ export default function HostView() {
     }
   }, [eliminatedPlayer, clearEliminated])
 
-  // Auto-dismiss error
+  // Auto-dismiss error; redirect to home for auth errors (e.g. wrong person used host URL)
   useEffect(() => {
     if (error) {
+      if (error.code === 'NOT_HOST' || error.code === 'ROOM_NOT_FOUND') {
+        const timer = setTimeout(() => { navigate('/') }, 3000)
+        return () => clearTimeout(timer)
+      }
       const timer = setTimeout(clearError, 4000)
       return () => clearTimeout(timer)
     }
-  }, [error, clearError])
+  }, [error, clearError, navigate])
 
   function handleStartGame() {
     socket.emit('start_game', { roomId, spyCount, blankCount })
@@ -154,6 +158,9 @@ export default function HostView() {
       {error && (
         <div className="fixed top-4 right-4 bg-red-500 text-white px-4 py-3 rounded-xl shadow-lg z-50 max-w-xs">
           {error.message || '發生錯誤'}
+          {(error.code === 'NOT_HOST' || error.code === 'ROOM_NOT_FOUND') && (
+            <p className="text-xs mt-1 text-white/80">3 秒後返回主頁...</p>
+          )}
         </div>
       )}
 
