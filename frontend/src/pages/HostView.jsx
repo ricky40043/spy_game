@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { socket } from '../socket.js'
 import { getHostId } from '../storage.js'
 import { useRoomState } from '../hooks/useRoomState.js'
@@ -9,6 +9,7 @@ import GameResult from '../components/GameResult.jsx'
 
 export default function HostView() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const roomId = searchParams.get('room') || ''
 
   const { roomState, clearError, clearEliminated } = useRoomState()
@@ -20,11 +21,37 @@ export default function HostView() {
   const [votedPlayers, setVotedPlayers] = useState([]) // playerIds who have voted
   const [showEliminated, setShowEliminated] = useState(false)
   const [disconnected, setDisconnected] = useState(false)
+  const [toast, setToast] = useState('')
 
   const joinUrl = `${window.location.origin}/player?room=${roomId}`
   const alivePlayers = players.filter(p => p.isAlive !== false)
 
   const hostId = getHostId()
+
+  function showToast(msg) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 2000)
+  }
+
+  function handleShareLink() {
+    if (navigator.share) {
+      navigator.share({ title: '誰是臥底', url: joinUrl }).catch(() => {})
+    } else {
+      navigator.clipboard.writeText(joinUrl).then(() => {
+        showToast('已複製連結！')
+      }).catch(() => {
+        showToast('複製失敗，請手動複製')
+      })
+    }
+  }
+
+  function handleCopyRoomId() {
+    navigator.clipboard.writeText(roomId).then(() => {
+      showToast('房號已複製！')
+    }).catch(() => {
+      showToast('複製失敗')
+    })
+  }
 
   function emitRejoinHost() {
     socket.emit('rejoin_host', { roomId, hostId })
@@ -115,29 +142,36 @@ export default function HostView() {
   const notSpokenYet = alivePlayers.filter(p => !spokenSet.has(p.playerId))
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
+    <div className="min-h-screen bg-gradient-to-br from-purple-700 via-blue-600 to-blue-500 text-white p-6">
       {/* Disconnection Banner */}
       {disconnected && (
-        <div className="fixed top-0 left-0 right-0 bg-yellow-600 text-white text-center py-2 text-sm z-50">
+        <div className="fixed top-0 left-0 right-0 bg-yellow-500 text-white text-center py-2 text-sm z-50 font-medium">
           連線中斷，嘗試重新連線...
         </div>
       )}
 
       {/* Error Toast */}
       {error && (
-        <div className="fixed top-4 right-4 bg-red-700 text-white px-4 py-3 rounded-xl shadow-lg z-50 max-w-xs">
+        <div className="fixed top-4 right-4 bg-red-500 text-white px-4 py-3 rounded-xl shadow-lg z-50 max-w-xs">
           {error.message || '發生錯誤'}
+        </div>
+      )}
+
+      {/* Copy/Share Toast */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-5 py-3 rounded-full shadow-lg z-50 text-sm font-medium">
+          {toast}
         </div>
       )}
 
       {/* Eliminated Modal */}
       {showEliminated && eliminatedPlayer && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-40">
-          <div className="bg-gray-800 rounded-2xl p-8 text-center max-w-sm mx-4 shadow-2xl">
+          <div className="bg-white rounded-2xl p-8 text-center max-w-sm mx-4 shadow-2xl">
             <p className="text-4xl mb-3">🚫</p>
-            <p className="text-gray-400 mb-1">玩家被淘汰</p>
-            <p className="text-2xl font-bold text-white mb-2">{eliminatedPlayer.name}</p>
-            <p className={`text-lg font-semibold ${eliminatedPlayer.role === 'spy' ? 'text-red-400' : 'text-blue-400'}`}>
+            <p className="text-gray-500 mb-1">玩家被淘汰</p>
+            <p className="text-2xl font-bold text-gray-800 mb-2">{eliminatedPlayer.name}</p>
+            <p className={`text-lg font-semibold ${eliminatedPlayer.role === 'spy' ? 'text-red-500' : 'text-blue-500'}`}>
               {eliminatedPlayer.role === 'spy' ? '臥底' : eliminatedPlayer.role === 'blank' ? '白板' : '平民'}
             </p>
             {eliminatedPlayer.word && (
@@ -150,13 +184,19 @@ export default function HostView() {
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-extrabold">誰是臥底</h1>
-            <p className="text-gray-400 text-sm">主持人視角</p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/')}
+              className="text-white/80 hover:text-white font-medium text-sm transition-colors"
+            >
+              ← 返回主頁
+            </button>
           </div>
-          <div className="text-right">
-            <p className="text-gray-400 text-xs mb-0.5">房號</p>
-            <p className="text-4xl font-black tracking-widest text-yellow-400">{roomId}</p>
+          <div className="flex items-center gap-3">
+            <p className="text-white/70 text-sm">房號</p>
+            <span className="bg-white/20 text-white text-2xl font-black tracking-widest px-4 py-1.5 rounded-2xl">
+              {roomId}
+            </span>
           </div>
         </div>
 
@@ -165,39 +205,54 @@ export default function HostView() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left: QR + settings */}
             <div className="space-y-4">
-              <div>
-                <h2 className="text-gray-400 text-sm mb-3">掃描加入</h2>
+              <div className="bg-white rounded-2xl shadow-lg p-4">
+                <h2 className="text-gray-500 text-sm mb-3 font-medium">掃描加入</h2>
                 <QRCodeBox url={joinUrl} />
+                {/* Share / Copy buttons */}
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={handleShareLink}
+                    className="flex-1 py-2.5 bg-green-500 hover:bg-green-400 text-white font-bold rounded-full transition-colors text-sm"
+                  >
+                    分享連結
+                  </button>
+                  <button
+                    onClick={handleCopyRoomId}
+                    className="flex-1 py-2.5 bg-white hover:bg-gray-50 text-gray-700 font-bold rounded-full transition-colors text-sm border border-gray-200"
+                  >
+                    複製房號
+                  </button>
+                </div>
               </div>
 
-              <div className="bg-gray-800 rounded-xl p-4 space-y-3">
-                <h2 className="text-white font-semibold">遊戲設定</h2>
+              <div className="bg-white rounded-2xl shadow-lg p-5 space-y-3">
+                <h2 className="text-gray-800 font-semibold">遊戲設定</h2>
                 <div className="flex items-center gap-3">
-                  <label className="text-gray-400 text-sm w-20">臥底人數</label>
+                  <label className="text-gray-500 text-sm w-20">臥底人數</label>
                   <input
                     type="number"
                     min={1}
                     max={Math.max(1, Math.floor(alivePlayers.length / 2))}
                     value={spyCount}
                     onChange={e => setSpyCount(Number(e.target.value))}
-                    className="w-20 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-center"
+                    className="w-20 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-center"
                   />
                 </div>
                 <div className="flex items-center gap-3">
-                  <label className="text-gray-400 text-sm w-20">白板人數</label>
+                  <label className="text-gray-500 text-sm w-20">白板人數</label>
                   <input
                     type="number"
                     min={0}
                     max={3}
                     value={blankCount}
                     onChange={e => setBlankCount(Number(e.target.value))}
-                    className="w-20 px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-center"
+                    className="w-20 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-center"
                   />
                 </div>
                 <button
                   onClick={handleStartGame}
                   disabled={alivePlayers.length < 4}
-                  className="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full py-3 bg-green-500 hover:bg-green-400 text-white font-bold rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {alivePlayers.length < 4 ? `至少需要 4 人（目前 ${alivePlayers.length} 人）` : '開始遊戲'}
                 </button>
@@ -205,12 +260,12 @@ export default function HostView() {
             </div>
 
             {/* Right: Player list */}
-            <div className="bg-gray-800 rounded-xl p-4">
-              <h2 className="text-white font-semibold mb-3">
+            <div className="bg-white rounded-2xl shadow-lg p-5">
+              <h2 className="text-gray-800 font-semibold mb-3">
                 已加入玩家（{players.length}）
               </h2>
               {players.length === 0 ? (
-                <p className="text-gray-500 text-sm">等待玩家加入...</p>
+                <p className="text-gray-400 text-sm">等待玩家加入...</p>
               ) : (
                 <PlayerList
                   players={players}
@@ -228,41 +283,41 @@ export default function HostView() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Center: Speaker highlight */}
             <div className="lg:col-span-2 space-y-4">
-              <div className="bg-gray-800 rounded-2xl p-6 text-center">
+              <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
                 <p className="text-gray-400 text-sm mb-1">第 {round} 輪</p>
-                <p className="text-gray-400 mb-2">現在發言</p>
-                <p className="text-4xl font-extrabold text-yellow-400">{speakerName || '等待中...'}</p>
+                <p className="text-gray-500 mb-2">現在發言</p>
+                <p className="text-4xl font-extrabold text-purple-600">{speakerName || '等待中...'}</p>
               </div>
               {/* Host control buttons */}
               <div className="flex gap-3">
                 <button onClick={handleForceNextRound}
-                  className="flex-1 py-2 bg-blue-700 hover:bg-blue-600 text-white text-sm font-semibold rounded-xl transition-colors">
+                  className="flex-1 py-2.5 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold rounded-full transition-colors border border-white/30">
                   重新開始此輪
                 </button>
                 <button onClick={handleForceEndGame}
-                  className="flex-1 py-2 bg-red-800 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-colors">
+                  className="flex-1 py-2.5 bg-red-500/80 hover:bg-red-500 text-white text-sm font-semibold rounded-full transition-colors">
                   直接結束遊戲
                 </button>
               </div>
 
               {/* Spoken / not spoken */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-800 rounded-xl p-3">
-                  <p className="text-gray-400 text-xs mb-2">已發言</p>
+                <div className="bg-white rounded-2xl shadow-lg p-4">
+                  <p className="text-gray-400 text-xs mb-2 font-medium">已發言</p>
                   <ul className="space-y-1">
                     {alivePlayers.filter(p => spokenSet.has(p.playerId)).map(p => (
-                      <li key={p.playerId} className="text-green-400 text-sm">{p.name}</li>
+                      <li key={p.playerId} className="text-green-600 text-sm font-medium">{p.name}</li>
                     ))}
                     {alivePlayers.filter(p => spokenSet.has(p.playerId)).length === 0 && (
-                      <li className="text-gray-600 text-sm">尚無人發言</li>
+                      <li className="text-gray-400 text-sm">尚無人發言</li>
                     )}
                   </ul>
                 </div>
-                <div className="bg-gray-800 rounded-xl p-3">
-                  <p className="text-gray-400 text-xs mb-2">未發言</p>
+                <div className="bg-white rounded-2xl shadow-lg p-4">
+                  <p className="text-gray-400 text-xs mb-2 font-medium">未發言</p>
                   <ul className="space-y-1">
                     {notSpokenYet.map(p => (
-                      <li key={p.playerId} className={`text-sm ${p.playerId === currentSpeakerId ? 'text-yellow-400 font-bold' : 'text-gray-300'}`}>
+                      <li key={p.playerId} className={`text-sm ${p.playerId === currentSpeakerId ? 'text-purple-600 font-bold' : 'text-gray-600'}`}>
                         {p.name}
                         {p.playerId === currentSpeakerId && ' 💬'}
                       </li>
@@ -273,8 +328,8 @@ export default function HostView() {
             </div>
 
             {/* Right: player list with kick */}
-            <div className="bg-gray-800 rounded-xl p-4">
-              <h2 className="text-white font-semibold mb-3">玩家（{alivePlayers.length} 存活）</h2>
+            <div className="bg-white rounded-2xl shadow-lg p-5">
+              <h2 className="text-gray-800 font-semibold mb-3">玩家（{alivePlayers.length} 存活）</h2>
               <PlayerList
                 players={players}
                 onKick={handleKick}
@@ -288,9 +343,9 @@ export default function HostView() {
         {/* VOTING */}
         {status === 'voting' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-gray-800 rounded-2xl p-6">
+            <div className="bg-white rounded-2xl shadow-lg p-6">
               <p className="text-gray-400 text-sm mb-1">第 {round} 輪</p>
-              <h2 className="text-2xl font-bold text-white mb-1">投票中</h2>
+              <h2 className="text-2xl font-bold text-gray-800 mb-1">投票中</h2>
               <p className="text-gray-400 text-sm mb-5">
                 已投票：{votedPlayers.length} / {alivePlayers.length}
               </p>
@@ -301,9 +356,9 @@ export default function HostView() {
                   {alivePlayers.map(p => {
                     const hasVoted = votedPlayers.includes(p.playerId)
                     return (
-                      <li key={p.playerId} className="flex items-center justify-between bg-gray-700 rounded-xl px-4 py-3">
-                        <span className="font-medium">{p.name}</span>
-                        <span className={`text-sm font-semibold ${hasVoted ? 'text-green-400' : 'text-gray-500'}`}>
+                      <li key={p.playerId} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                        <span className="font-medium text-gray-800">{p.name}</span>
+                        <span className={`text-sm font-semibold ${hasVoted ? 'text-green-500' : 'text-gray-400'}`}>
                           {hasVoted ? '已投票 ✓' : '未投票'}
                         </span>
                       </li>
@@ -315,20 +370,20 @@ export default function HostView() {
               {/* After all voted: reveal vote counts */}
               {voteResults && (
                 <div>
-                  <p className="text-yellow-400 text-sm font-semibold mb-3">計票結果</p>
+                  <p className="text-purple-600 text-sm font-semibold mb-3">計票結果</p>
                   <ul className="space-y-2">
                     {candidates.map(c => {
                       const votes = voteResults[c.playerId] || 0
                       const total = Object.values(voteResults).reduce((a, b) => a + b, 0)
                       const pct = total > 0 ? Math.round((votes / total) * 100) : 0
                       return (
-                        <li key={c.playerId} className="bg-gray-700 rounded-xl px-4 py-3">
+                        <li key={c.playerId} className="bg-gray-50 rounded-xl px-4 py-3">
                           <div className="flex justify-between items-center mb-1">
-                            <span className="font-medium">{c.name}</span>
-                            <span className="text-yellow-400 font-bold">{votes} 票</span>
+                            <span className="font-medium text-gray-800">{c.name}</span>
+                            <span className="text-purple-600 font-bold">{votes} 票</span>
                           </div>
-                          <div className="w-full bg-gray-600 rounded-full h-2">
-                            <div className="bg-yellow-400 h-2 rounded-full transition-all"
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="bg-purple-500 h-2 rounded-full transition-all"
                               style={{ width: `${pct}%` }} />
                           </div>
                         </li>
@@ -340,13 +395,13 @@ export default function HostView() {
 
               <div className="mt-4 flex gap-3">
                 <button onClick={handleForceEndGame}
-                  className="w-full py-2 bg-red-800 hover:bg-red-700 text-white text-sm font-semibold rounded-xl transition-colors">
+                  className="w-full py-2.5 bg-red-500 hover:bg-red-400 text-white text-sm font-semibold rounded-full transition-colors">
                   直接結束遊戲
                 </button>
               </div>
             </div>
-            <div className="bg-gray-800 rounded-xl p-4">
-              <h2 className="text-white font-semibold mb-3">玩家狀態</h2>
+            <div className="bg-white rounded-2xl shadow-lg p-5">
+              <h2 className="text-gray-800 font-semibold mb-3">玩家狀態</h2>
               <PlayerList players={players} isHost={false} currentSpeakerId={null} />
             </div>
           </div>
@@ -355,19 +410,19 @@ export default function HostView() {
         {/* REVOTING */}
         {status === 'revoting' && (
           <div className="space-y-4">
-            <div className="bg-orange-900 bg-opacity-40 border border-orange-600 rounded-2xl p-6 text-center">
-              <p className="text-3xl font-bold text-orange-400 mb-2">平票！</p>
-              <p className="text-gray-300 mb-4">{tieReason || '以下玩家重新發言後再投票'}</p>
+            <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
+              <p className="text-3xl font-bold text-orange-500 mb-2">平票！</p>
+              <p className="text-gray-500 mb-4">{tieReason || '以下玩家重新發言後再投票'}</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {tieCandidates.map(c => (
-                  <span key={c.playerId} className="bg-orange-700 text-white px-4 py-2 rounded-full font-medium">
+                  <span key={c.playerId} className="bg-orange-100 text-orange-700 px-4 py-2 rounded-full font-medium border border-orange-200">
                     {c.name}
                   </span>
                 ))}
               </div>
             </div>
-            <div className="bg-gray-800 rounded-xl p-4">
-              <h2 className="text-white font-semibold mb-3">玩家狀態</h2>
+            <div className="bg-white rounded-2xl shadow-lg p-5">
+              <h2 className="text-gray-800 font-semibold mb-3">玩家狀態</h2>
               <PlayerList players={players} isHost={false} currentSpeakerId={currentSpeakerId} />
             </div>
           </div>
