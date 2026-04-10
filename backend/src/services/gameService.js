@@ -555,6 +555,21 @@ async function handleKickPlayer(io, socket, roomId, targetPlayerId) {
     return;
   }
 
+  const room = await getRoom(roomId);
+
+  // During waiting phase: just remove the player, no elimination event, no win check
+  if (room.status === 'waiting') {
+    await redis.hdel(`room:${roomId}:players`, targetPlayerId);
+    const players = await getPlayers(roomId);
+    io.to(roomId).emit('room_updated', {
+      players: toPublicPlayers(players),
+      status: 'waiting',
+      round: room.round,
+    });
+    return;
+  }
+
+  // During game: mark eliminated, emit event, check win condition
   await updatePlayer(roomId, targetPlayerId, { isAlive: false });
 
   io.to(roomId).emit('player_eliminated', {
@@ -563,8 +578,6 @@ async function handleKickPlayer(io, socket, roomId, targetPlayerId) {
     role: target.role,
     word: target.word,
   });
-
-  const room = await getRoom(roomId);
 
   // If the kicked player was speaking, advance speaker
   if (room.currentSpeakerId === targetPlayerId) {
