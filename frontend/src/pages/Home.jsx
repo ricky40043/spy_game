@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { socket } from '../socket.js'
 import { getHostId } from '../storage.js'
+import QRScanner from '../components/QRScanner.jsx'
 
 export default function Home() {
   const navigate = useNavigate()
@@ -9,6 +10,7 @@ export default function Home() {
   const prefilledRoom = searchParams.get('room') || ''
 
   const [mode, setMode] = useState(null) // null | 'join'
+  const [showScanner, setShowScanner] = useState(false)
   const [roomInput, setRoomInput] = useState(prefilledRoom)
   const [nameInput, setNameInput] = useState('')
   const [error, setError] = useState('')
@@ -46,6 +48,31 @@ export default function Home() {
     socket.emit('create_room', { hostId })
   }
 
+  function handleScanResult(text) {
+    setShowScanner(false)
+    try {
+      const url = new URL(text)
+      const room = url.searchParams.get('room')
+      if (room) {
+        // URL contains room code — go to player join page
+        navigate(`/player?room=${room.toUpperCase()}`)
+      } else {
+        // Might be just a room code text
+        setRoomInput(text.trim().toUpperCase())
+        setMode('join')
+      }
+    } catch {
+      // Not a URL, treat as room code
+      setRoomInput(text.trim().toUpperCase())
+      setMode('join')
+    }
+  }
+
+  function handleScanClose(errMsg) {
+    setShowScanner(false)
+    if (errMsg) setError(errMsg)
+  }
+
   function handleJoin() {
     const room = roomInput.trim().toUpperCase()
     const name = nameInput.trim()
@@ -63,6 +90,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-700 via-blue-600 to-blue-500 flex flex-col items-center justify-center px-4">
+      {showScanner && <QRScanner onResult={handleScanResult} onClose={handleScanClose} />}
       <div className="w-full max-w-sm space-y-6">
         {/* Title */}
         <div className="text-center mb-2">
@@ -119,7 +147,7 @@ export default function Home() {
                 </div>
               </div>
               <button
-                onClick={() => navigate('/player')}
+                onClick={() => setShowScanner(true)}
                 className="px-5 py-2 bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-800 font-bold rounded-full transition-colors text-sm border border-gray-300 whitespace-nowrap"
               >
                 掃描
