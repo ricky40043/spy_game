@@ -3,7 +3,7 @@ services:
   app:
     build: .
     ports:
-      - "10000:10000"
+      - "19100:10000"
     environment:
       - NODE_ENV=production
       - PORT=10000
