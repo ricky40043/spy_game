@@ -4,6 +4,7 @@ const { getPlayers, getPlayer, updatePlayer, updatePlayers, resetVotes, toPublic
 const { castVote, getVotes, clearVotes, settleVotes } = require('./voteService');
 const { pickWordPair } = require('./wordService');
 const logger = require('../utils/logger');
+const stats = require('./stats');
 
 /**
  * Assign roles and words to all players, then save to Redis.
@@ -135,6 +136,8 @@ async function startGame(io, socket, roomId, spyCount, blankCount) {
     round: updatedRoom.round,
     currentSpeakerId: '',
   });
+
+  stats.track('game_start', { room: roomId, players: alivePlayers.length, meta: { spyCount: sc, blankCount: bc } });
 
   // Start speaking rounds
   await nextSpeaker(io, roomId);
@@ -449,6 +452,8 @@ async function checkWinCondition(io, roomId) {
       })),
     });
 
+    stats.track('game_end', { room: roomId, players: players.length, meta: { winner } });
+
     logger.info(`Game over in room ${roomId}: ${winner} wins`);
   } else {
     // Advance to next round
@@ -637,6 +642,7 @@ async function forceEndGame(io, socket, roomId) {
       isAlive: p.isAlive,
     })),
   });
+  stats.track('game_end', { room: roomId, players: players.length, meta: { winner: 'draw', forced: true } });
   logger.info(`Game force-ended by host in room ${roomId}`);
 }
 
